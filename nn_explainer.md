@@ -4,20 +4,8 @@ author:
 title: 'Basic mathematics of (supervised) neural networks'
 ---
 
-Neural networks have found tremendous success in classifying data sets
-such as images, texts and sound fragments. These networks learn the
-connections between a data point and its correct classification through
-a process called supervised learning. In this process the network is
-presented with a set of data points and the corresponding
-categorisation. Through an iterative process, the network is able to
-approximate the connections inherent to the data sets. In practice the
-connection found by the neural network generalises to other data points
-not in the original set; The network can correctly recognise data points
-that were not in the initial set. The underlying assumption is that data
-points close to one of the initial data points belongs to the same
-category. The definition of \"close\" is loose, but it excludes cases
-like hash functions, where neighbouring points are in no relation in the
-mapping space.
+Neural networks have found tremendous success in classifying data sets such as images, texts and sound fragments. These networks learn the connections between a data point and its correct classification through a process called supervised learning. In this process the network is presented with a set of data points and the corresponding categorisation. Through an iterative process, the network is able to approximate the connections inherent to the data sets. In practice the connection found by the neural network generalises to other data points not in the original set; The network can correctly recognise data points
+that were not in the initial set. The underlying assumption is that data points close to one of the initial data points belongs to the same category. The definition of \"close\" is loose, but it excludes cases like hash functions, where neighbouring points are in no relation in the mapping space.
 
 A neural network is used to make a connection between a data input space
 and a categorisation space. Generally, both spaces are standard vectors
@@ -31,9 +19,9 @@ space, meaning: $$\begin{aligned}
 where $\mathbb{R}^f$ and $\mathbb{R}^l$ are the feature (data) and label
 (categorisation) space respectively and $i$ is an index that runs over
 the data points. This ideal map provides a categorisation for each
-input. Consider for example data points in $\mathbb{R}^2$, as shown in
-figure [\[fig:simpledataset\]](#fig:simpledataset){reference-type="ref"
-reference="fig:simpledataset"}.
+input. Consider for example data points in $\mathbb{R}^2$, as shown in the following figure.
+
+![two sets of coloured dots](figures_nn_explainer/nn_explainer-figure0.png)
 
 The categorisation space is also two-dimensional, with each data point
 carrying a value of either red
@@ -70,16 +58,17 @@ Now that there is a way of choosing the category, the known map
 $\mathbf{T}$ can be approximated. Since both the data space and the
 categorisation space are well-behaved vector-spaces, the known map can
 be approximated by matrices. The approximation $T$ can be represented as
-matrix $w$ and bias vector $b$ as $$\begin{aligned}
-T_\text{linear}:&\mathbb{R}^f \mapsto \mathbb{R}^l\nonumber\\
-T_\text{linear}:&\mathbb{R}^f \ni x_i \to (w x_i + b) \in \mathbb{R}^l \end{aligned}$$
+matrix $w$ and bias vector $b$ as $$
+T_\text{linear}:&\mathbb{R}^f \mapsto \mathbb{R}^l\nonumber$$
+
+$$T_\text{linear}:&\mathbb{R}^f \ni x_i \to (w x_i + b) \in \mathbb{R}^l$$
 In this map, the matrix $w$ has dimensions $f \times l$ and the bias is
 $l$-dimensional. In the case of example presented above, the
 approximation is sufficient as the two areas of data points simply need
-to be rotated to be correctly classified. This is shown in figure
-[\[fig:rotatedsimplesolution\]](#fig:rotatedsimplesolution){reference-type="ref"
-reference="fig:rotatedsimplesolution"}, with the areas of categorisation
+to be rotated to be correctly classified. This is shown in the figure below, with the areas of categorisation
 drawn in.
+
+![Two groups of dots in two colours, with a decision boundary drawn across them.](figures_nn_explainer/nn_explainer-figure1.png)
 
 While this solution certainly manages to separate the data, quite a
 number of data points are still a large distance away from the true
@@ -89,8 +78,8 @@ agreement between the approximation $T$ and the desired outcome
 $\mathbf{T}$, one introduces non-linearity. The aforementioned map
 $T: x\to wx+b$ changes to $T: x\to \sigma(wx+b)$, where $\sigma$ is
 called the activation function. The activation function is applied to
-each entry, meaning: $$\begin{aligned}
-\sigma(\vec{x}) = \sigma \begin{pmatrix} x_1 \\ x_2 \\ \vdots\\ x_n\end{pmatrix} = \begin{pmatrix} \sigma(x_1)\\ \sigma(x_2) \\\vdots\\ \sigma (x_n)\end{pmatrix}\end{aligned}$$
+each entry, meaning: $$
+\sigma(\vec{x}) = \sigma \begin{pmatrix} x_1 \\ x_2 \\ \vdots\\ x_n\end{pmatrix} = \begin{pmatrix} \sigma(x_1)\\ \sigma(x_2) \\\vdots\\ \sigma (x_n)\end{pmatrix}$$
 
 There are a number of different activation functions in use. A
 convenient function to use in this context is the sigmoid function
@@ -101,12 +90,11 @@ restricted to $0$. By multiplying the matrix $w$ with a large number and
 then applying the function, the function $T$ approximates the known map
 $\mathbf{T}$ very well.
 
-$$\begin{aligned}
+|---|---|
+| $$
 \sigma_\text{sigmoid}(x) &= \frac1{1+e^{-x}}& \begin{tikzpicture}[baseline=0cm] 
 \draw[gray!20] (-2.5, 0) -- (2.5, 0);
-\draw[domain=-5:5, samples=51, xscale=0.5] plot (\x, {1/(1+exp(-\x))});
-\draw (-2.5, 0) node[left] {$0$} (2.5, 1) node [right] {$1$};
-\end{tikzpicture}\end{aligned}$$
+\draw[domain=-5:5, samples=51, xscale=0.5] plot (\x, {1/(1+exp(-\x))});$$ | ![a graph of the function sigma(x) = 1/(1+e^-x)](figures_nn_explainer/nn_explainer-figure2.png) |
 
 The final approximation is shown in figure
 [\[fig:finalsimplesolution\]](#fig:finalsimplesolution){reference-type="ref"
