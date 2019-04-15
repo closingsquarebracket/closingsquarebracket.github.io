@@ -1,0 +1,298 @@
+\documentclass[a4paper, justified]{tufte-handout}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{units}
+\usepackage{microtype}
+\usepackage{fancyvrb}
+\fvset{fontsize=\normalsize}
+\usepackage{multicol}
+\usepackage{tikz}
+\usetikzlibrary{datavisualization}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc}
+\usetikzlibrary{external}
+\tikzexternalize
+\tikzsetexternalprefix{figures/}
+\usepackage{lipsum}
+
+
+
+\usepackage{ifxetex}
+\ifxetex
+  \renewcommand{\textls}[2][5]{%
+    \begingroup\addfontfeatures{LetterSpace=#1}#2\endgroup
+  }
+  \renewcommand{\allcapsspacing}[1]{\textls[15]{#1}}
+  \renewcommand{\smallcapsspacing}[1]{\textls[10]{#1}}
+  \renewcommand{\allcaps}[1]{\textls[15]{\MakeTextUppercase{#1}}}
+  \renewcommand{\smallcaps}[1]{\smallcapsspacing{\scshape\MakeTextLowercase{#1}}}
+  \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
+  \usepackage{fontspec}
+  \setmainfont{Hoefler Text}
+  \setsansfont{Gill Sans}[Scale=MatchUppercase]
+\fi
+
+
+\usepgfmodule{nonlineartransformations}
+\makeatletter
+\def\sigmoidscale{1}
+\def\sigmoidtransformation{%
+\pgf@xa=\pgf@x%
+\pgf@ya=\pgf@y%
+\pgfmathsetmacro{\sigmoidx}{\sigmoidscale*1cm/(1+exp(min(-\pgf@xa/1cm, 5)))}%
+\pgfmathsetmacro{\sigmoidy}{\sigmoidscale*1cm/(1+exp(min(-\pgf@ya/1cm, 5)))}%
+\pgf@x=\sigmoidx pt
+\pgf@y=\sigmoidy pt
+}
+
+
+
+\title{Basic mathematics of (supervised) neural networks}
+\author{Maximilian Balthasar Mansky}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+Neural networks have found tremendous success in classifying data sets such as images, texts and sound fragments. A particular way to establish such a classification is through a process called supervised learning. In this process the network is presented with a set of data points and the corresponding categorisation. Through an iterative process, the network is able to approximate the connections inherent to the data sets. For practical applications of neural networks it is expected that the map generalises to other points. Effectively, a point $x+\epsilon$ close to an original point is assumed to belong to the same category. The definition of "close" is loose but it excludes cases such as hash functions, where two neighbouring points are in no relation to each other after the application of the hash function.
+
+A neural network is used to make a connection between a data input space and a categorisation space. Generally, both spaces are standard vectors space, i.e. $\mathbb{R}^n$. The data on both the input and the output are embedded in their spaces as discrete points. The purpose of the neural network is to find an approximation to the known map $\mathbf{T}$ that correctly maps points from the data space to the categorisation space, meaning:
+\begin{align}
+\mathbf{T}:&\,\phantom{\ni x_i}\mathbb{R}^f \mapsto \mathbb{R}^l\nonumber\\
+\mathbf{T}:&\mathbb{R}^f \ni x_i \to y_i \in \mathbb{R}^l
+\end{align}
+where $\mathbb{R}^f$ and $\mathbb{R}^l$ are the feature (data) and label (categorisation) space respectively and $i$ is an index that runs over the data points. This ideal map provides a categorisation for each input. Consider for example data points in $\mathbb{R}^2$, as shown in figure \ref{fig:simpledataset}.
+
+\begin{marginfigure}
+\pgfmathsetseed{1}
+\begin{tikzpicture}[scale=2]
+\foreach \i in {0, ..., 50} {
+	
+	\draw[red] (rnd, rnd) circle (0.03);
+	\draw[blue] (rnd + 1.5, rnd + 1.5) circle (0.03);
+	};
+\end{tikzpicture}
+\caption{Two sets of two-dimensional data, split into two different categories.}\label{fig:simpledataset}
+\end{marginfigure}
+
+The categorisation space is also two-dimensional, with each data point carrying a value of either red $(\begin{smallmatrix} 1\\0\end{smallmatrix})$ or blue $(\begin{smallmatrix} 0\\1\end{smallmatrix})$. All of the known data points therefore carry two sets of values, a two-dimensional position in within the figure and a two-dimensional description that uniquely identifies the color. This set is the known map $\mathbf{T}$. However, this map is not very useful in practice because it can only provide information for points that are known, it caries no information about points outside of the set. In the given example, $\mathbf{T}$ only contains a list of pairs of $x, y$ coordinates and the corresponding colour and it can make no prediction about any point in the data space, as illustrated in table \ref{tab:knownmap}.
+
+\begin{margintable}
+\begin{tabular}{c| c c}
+$\mathbf{T}$	& features & labels\\\hline
+$d_1$		& $x_1^1, x_1^2, \ldots x_1^f$ & $y_1^1, y_1^2\ldots y_1^l$\\
+$d_2$		& $x_2^1, x_2^2, \ldots x_2^f$ & $y_2^1, y_2^2\ldots y_2^l$\\
+$\vdots$ & $ \vdots $ & $\vdots$\\
+$d_n$ & $x_n^1, x_n^2, \ldots, x_n^f$ & $y_n^1, y_n^2, \ldots, y_n^l$
+\end{tabular}
+\caption{The structure of the known map $\mathbf{T}$. Each data point $d$ contains a list of feature coordinates $x$ and label coordinates $y$.}\label{tab:knownmap}
+\end{margintable}
+
+
+
+An approximation $T$ to the known map $\mathbf{T}$ may not be able to reproduce the clear $(\begin{smallmatrix} 1\\0\end{smallmatrix})$ or $(\begin{smallmatrix} 0\\1\end{smallmatrix})$ vectors as seen in the known map. In the neural network, needs to be a selection criteria to decide whether a point $y_i = T(x_i)$ belongs to either the red or the blue category. Since the dimension number is the criterion that decides which category the data point belongs to, it makes sense to choose the category with the largest value (in the case where the categories are mutually exclusive) or where the value of the dimension is larger than a cut-off value (meaning that potentially several categories can be chosen at the same time). Both choices are valid even after normalisation of the vector length. In this example, the points are categorised based on the dimension carrying the largest value.
+
+Now that there is a way of choosing the category, the known map $\mathbf{T}$ can be approximated. Since both the data space and the categorisation space are well-behaved vector-spaces, the known map can be approximated by matrices. The approximation $T$ can be represented as matrix $w$ and bias vector $b$ as
+\begin{align}
+T_\text{linear}:&\mathbb{R}^f \mapsto \mathbb{R}^l\nonumber\\
+T_\text{linear}:&\mathbb{R}^f \ni x_i \to (w x_i + b) \in \mathbb{R}^l 
+\end{align}
+In this map, the matrix $w$ has dimensions $f \times l$ and the bias is $l$-dimensional. In the case of example presented above, the approximation is sufficient as the two areas of data points simply need to be rotated to be correctly classified. This is shown in figure \ref{fig:rotatedsimplesolution}, with the areas of categorisation drawn in.
+
+\begin{marginfigure}
+\pgfmathsetseed{1}
+\begin{tikzpicture}[scale=2]
+\fill[red!20] (0,0) -- (2.5, 2.5) -- (2.5, 0);
+\fill[blue!20] (0,0) -- (2.5, 2.5) -- (0, 2.5);
+\begin{scope}[cm={0, 1, -1, 0, (2.5, 0)}]
+\draw[gray!50, very thin] (0,0) grid[step=0.25] (2.5, 2.5);
+	\foreach \i in {0, ..., 50} {
+		\draw[red] (rnd, rnd) circle (0.03);
+		\draw[blue] (rnd + 1.5, rnd + 1.5) circle (0.03);
+	};
+\end{scope}
+\draw (0,0) -- (2.5, 2.5);
+%\draw (2, 0.5) node {$y^{(1)} > y^{(2)}$} (0.5, 2) node {$y^{(1)} < y^{(2)}$};
+\end{tikzpicture}
+\caption{The data set after the applying a linear transformation. The grid is subject to the same transformation as the data.}\label{fig:rotatedsimplesolution}
+\end{marginfigure}
+
+While this solution certainly manages to separate the data, quite a number of data points are still a large distance away from the true value of $(\begin{smallmatrix} 1\\0 \end{smallmatrix})$ or $(\begin{smallmatrix} 0\\1\end{smallmatrix})$. In order to improve the agreement between the approximation $T$ and the desired outcome $\mathbf{T}$, one introduces non-linearity. The aforementioned map $T: x\to wx+b$ changes to $T: x\to \sigma(wx+b)$, where $\sigma$ is called the activation function. The activation function is applied to each entry, meaning:
+\begin{align}
+\sigma(\vec{x}) = \sigma \begin{pmatrix} x_1 \\ x_2 \\ \vdots\\ x_n\end{pmatrix} = \begin{pmatrix} \sigma(x_1)\\ \sigma(x_2) \\\vdots\\ \sigma (x_n)\end{pmatrix}
+\end{align}
+
+There are a number of different activation functions in use. A convenient function to use in this context is the sigmoid function (logistic function) $\sigma(x) = 1/(1+\exp(-x))$. This function can be used to restrict the image of the map to one that coincides with the known labels. Values that are large are restricted to $1$ and small ones restricted to $0$. By multiplying the previously found matrix $w$ with a large number and then applying the function, the function $T$ approximates the known map $\mathbf{T}$ very well.
+
+\begin{align}
+\sigma_\text{sigmoid}(x) &= \frac1{1+e^{-x}}& \begin{tikzpicture}[baseline=0cm] 
+\draw[gray!20] (-2.5, 0) -- (2.5, 0);
+\draw[domain=-5:5, samples=51, xscale=0.5] plot (\x, {1/(1+exp(-\x))});
+\draw (-2.5, 0) node[left] {$0$} (2.5, 1) node [right] {$1$};
+\end{tikzpicture}
+\end{align}
+
+The final approximation is shown in figure \ref{fig:finalsimplesolution}. As expected, the data points cluster towards the ideal values of $(\begin{smallmatrix}1\\0\end{smallmatrix})$ and $(\begin{smallmatrix} 0\\1\end{smallmatrix})$. Also observe how the space is stretched. The grid in figures \ref{fig:rotatedsimplesolution} and \ref{fig:finalsimplesolution} are the same, both the $\sigma_\text{sigmoid}$ transformation stretches the space such that $T\approx \mathbf{T}$ for the known data points $x_i$.
+
+
+\begin{marginfigure}[-150pt]
+\pgfmathsetseed{1}
+\begin{tikzpicture}[scale=2]
+\fill[red!20] (0,0) -- (2.5, 2.5) -- (2.5, 0);
+\fill[blue!20] (0,0) -- (2.5, 2.5) -- (0, 2.5);
+\draw (0,0) -- (2.5, 2.5);
+\def\sigmoidscale{5}
+{\pgftransformnonlinear{\sigmoidtransformation}
+\begin{scope}[cm={0, 3, -3, 0, (3.75, -3.75)}]
+\draw[gray!50, very thin] (0,0) grid[step=0.25] (2.5, 2.5);
+	\foreach \i in {0, ..., 50} {
+		\path (rnd, rnd) node (r\i) {};
+		\path (rnd + 1.5, rnd+1.5) node (b\i) {};
+	};
+\end{scope}
+}
+\foreach \i in {0, ..., 50} {
+	\draw[red] (r\i) circle (0.03);
+	\draw[blue] (b\i) circle (0.03);
+	};
+\end{tikzpicture}\caption{The data set after the applying the non-linear transformation. The grid indicates equal sizes in the untransformed space.}\label{fig:finalsimplesolution}
+\end{marginfigure}
+
+
+The solution here raises two questions: How does the computer "know" how to move the points around and what happens in more complex arrangements of data that are not linearly separable?
+
+\section{Error determination and matrix adjustment}
+
+In order to find a map $T$ that approximates the known map $\mathbf{T}$ well, one needs to know the difference or rather the error between the two. Consider some map $T: x\to \sigma(wx+b)$ as described above. For each known data point $x_i$ that is mapped into the categorisation space $T: x_i \to y_i$, there is a difference to the correct categorisation $y_\text{true}$, in the above example this is $y_\text{red} = (\begin{smallmatrix} 1\\0\end{smallmatrix})$ or $y_\text{blue} = (\begin{smallmatrix} 0\\1\end{smallmatrix})$. The error between the predicted categorisation value $y_\text{pred} = T(x_i)$ and the true categorisation $y_\text{true}$ can be expressed with an error function, $E(y_\text{pred}, y_\text{true})$. The choice of the error function depends on the problem in question, however it needs to be differentiable. The requirement of differentiability is necessary because one can use the derivative of the error to change both $w$ and $b$ to yield a better approximation of the known map $\mathbf{T}$. Consider the derivative of the error with respect to $w$:\footnote{The derivation for the bias vector $b$ is analogous.}
+\begin{align}
+\frac{\partial E}{\partial w} = \frac{\partial E}{\partial \sigma} \frac{\partial \sigma}{\partial w}\label{eq:simpleupdate}
+\end{align}
+Since both the error function $E$ and the activation function $\sigma$ are required to be differentiable, it is possible to obtain the gradient for the matrix, i.e. the direction of largest change. A change of $w_\text{new} = w - \eta \frac{\partial E}{\partial w}$, where $\eta$ is a regulating constant (the learning rate), will reduce the error between the current value in the categorisation space, $y_{\text{pred}, i} = T(x_i)$ and the desired value, $y_{\text{true}, i} = \mathbf{T}(x_i)$. Hence by going through all data points in the training set, the neural network is able to approximate the known map to a sufficient degree. Moreover, since $T$ is a continuous map, it is able to make predictions about nearby points $x+\epsilon$ close to known data points.
+
+\section{Layers of networks}
+
+The solution presented above works well when data is linearly separable, meaning that the data can be categorised based on a matrix transformation followed by a non-linear transformation of the resulting space. %A simple example where the this approach fails to find a proper solution is presented in figure \ref{fig:simpleroundproblem}.
+
+%\begin{marginfigure}
+%\pgfmathsetseed{1}
+%\begin{tikzpicture}[scale=2]
+%\fill[red!20] (0, 0) -- (2.5, 2.5) -- (2.5,0);
+%\fill[blue!20] (0, 0) -- (2.5, 2.5) -- (0, 2.5);
+%%\def\sigmoidscale{5}{
+%%\pgftransformnonlinear{\sigmoidtransformation}
+%\draw[gray!50, very thin] (0,0) grid[step=0.25] (2.5, 2.5);
+%\begin{scope}[cm={1, 0, 0, 1, (1.25, 1.25)}]
+%\foreach \i in {0, 5, ..., 360} {
+%	\draw[red] (\i:rnd*0.4) node (r\i) {};
+%	\draw[blue] (\i:rnd*0.5+0.5) node (b\i) {};
+%	};
+%\end{scope}
+%%}
+%\foreach \i in {0, 5, ..., 360} {
+%	\draw[red] (r\i) circle (0.03);
+%	\draw[blue] (b\i) circle (0.03);
+%	};
+%\draw (0, 0) -- (2.5, 2.5);
+%\end{tikzpicture}
+%
+%\caption{Another simple problem, this time with one set of data circumscribing the other.}\label{fig:simpleroundproblem}
+%\end{marginfigure}
+
+It is obvious that stretching and warping space alone will not  always separate data points belonging to the same category. One can attempt to correctly classify data by moving to higher or lower dimensions. This is the idea behind layers of a network. Instead of using a single transformation $T:\sigma(wx+b)$, several are concatenated as:
+\begin{align}
+T_1\circ T_2&: \mathbb{R}^f \to \mathbb{R}^n \to \mathbb{R}^l\nonumber\\
+T_1\circ T_2&: x_i \in \mathbb{R}^f \mapsto x_i \in \mathbb{R}^n  \mapsto x_i \in \mathbb{R}^l
+\end{align}
+The intermediary space $\mathbb{R}^n$ does not need to have the same dimensionality as the surrounding ones. This allows to rotate and stretch in higher dimensions, with restrictions. A map $T: \mathbb{R}^m \to \mathbb{R}^n$ with $m<n$ is injective, the opposite $T:\mathbb{R}^m \to \mathbb{R}^n$ with $m>n$ is surjective. In particular in linear cases,
+\begin{align}
+T_\text{linear} &:\mathbb{R}^m \to \mathbb{R}^n\nonumber\\
+T_\text{linear} &: \mathbb{R}^m \ni x \mapsto wx+b \in \mathbb{R}^n
+\end{align}
+the relative alignment of the data points $x_i$ is preserved in the new space. Consider figure \ref{fig:transfer}, where a linear transfer of an arrangement of data points is shown, as $T:\mathbb{R}^2\to \mathbb{R}^3\to \mathbb{R}^2$, with no application of an activation function $\sigma$. When moving from a smaller to a larger dimension, the data points remain in a hyperplane equivalent to the prior dimension; Coming from two to three dimensions, all data points $x_i \in \mathbb{R}^2$ are mapped to a plane in $\mathbb{R}^3$. This is an injective map since not all possible values in the target space $\mathbb{R}^n$ have a source. Conversely, the map $\mathbb{R}^m\to \mathbb{R}^n$ with $m>n$ is surjective, (infinitely) many data points get projected to the same data point in the target space.
+
+\begin{figure*}\centering
+\begin{tikzpicture}[scale=2]
+\begin{scope}[xslant=.5]
+\draw (0, -1) -- (0, 1) (-1, 0) -- (1, 0);
+\foreach \i in {30, 40, ..., 120} {
+	\path (\i:\i/120) node (1r\i) {};
+	\path (\i+180:\i/120) node (1b\i) {};
+	%\node (\i+180:\i) (b\i) {};
+	};
+\end{scope}
+\begin{scope}[xshift = 2.5cm]
+\draw (0, -0.7) -- (0,0.7);
+\draw[xslant=0.5] (0, -1) -- (0, 1) (-1, 0) -- (1, 0);
+\begin{scope}[cm={0.3, 1.1, -1.1, 0.3, (0,0)}]
+	\foreach \i in {30, 40, ..., 120} {
+		\path (\i: \i/120) node (2r\i) {} (\i+180:\i/120) node (2b\i){};
+		};
+\end{scope}
+\end{scope}
+\begin{scope}[xshift=5cm]
+\draw[xslant=0.5] (0, -1) -- (0, 1) (-1, 0) -- (1,0);
+\foreach \i in {30, 40, ..., 120} {
+	\path (180:{0.2*exp(\i/120 + 1)-0.6}) node (3r\i) {} (0:{0.2*exp(\i/120 + 1)-0.6}) node (3b\i) {};
+	};
+\end{scope}
+
+\foreach \i in {30, 40, ..., 120} {
+	\draw[red] (1r\i) circle (0.03) (2r\i) circle (0.03) (3r\i) circle (0.03);
+	\draw[blue] (1b\i) circle (0.03) (2b\i) circle (0.03) (3b\i) circle (0.03);
+	};
+\draw[xshift=1.25,yshift=-1cm] (0,0) node[below] (r1) {$\mathbb{R}^2$} (2.5,0) node[below] (r2) {$\mathbb{R}^3$} (5,0) node[below] (r3) {$\mathbb{R}^2$};
+\draw[->] (r1) -- (r2);
+\draw[->] (r2) -- (r3);
+\end{tikzpicture}
+\caption{Qualitative example of a transfer of data points from $\mathbb{R}^2$ to $\mathbb{R}^3$ and back to $\mathbb{R}^2$. For ease of viewing, the two-dimensional plane is moved out of the paper plane.}\label{fig:transfer}
+\end{figure*}
+
+The second, surjective case appears very often in real-life applications of neural networks. Generally, there is a large disparity between the input dimension and and the number of classifications of that data, i.e. the dimensionality of the label space. By effectively projecting down a huge number of dimensions to the classifications, it becomes possible to create a map that correctly classifies the original data points $x_i$ but also generalises to points $x_i + \epsilon$.
+
+This concept of iterating the map $T$ by passing through different vector spaces is of course not limited to length $2$. The concept of "deep" neural networks refer to the fact that there are many layers to a neural network. This is represented as
+\begin{align}
+T= T_1 \circ T_2 \cdots T_n:& \mathbb{R}^f \to \mathbb{R}^{(2)}\to \ldots \to \mathbb{R}^{(n-2)} \to \mathbb{R}^l
+\end{align}
+where the bracketed numbers indicate the number of the space rather than its dimension.
+
+Deep neural networks can discern categories based on increasingly complex relations. Recent developments in machine learning research have also added layers that work by comparing adjacent pixels or can take sequential data into account. 
+ 
+
+\subsection{Error propagation through many-layered neural networks}
+
+With more layers, there are also more matrices to updated. While the last layer can be updated as shown in equation \eqref{eq:simpleupdate}, layers before that need to change depending on the following layer. The gradient update propagates backwards through the layers in a process termed "backpropagation". The update of a layer $T_n$ is calculated with respect to the derivative of the next layer $T_{n+1}$.
+%
+%\section{Alternative interpretations}
+%
+%When a few data points are embedded in a very large data space, the image presented above breaks down. Consider a standard example of machine learning, the MNIST dataset of hand-drawn digits presented as $28\times28$ grayscale pixel images. There are 50\,000 images with 10 categories corresponding to the 10 digits. In a simple neural network, the map between the two spaces may be set up as:
+%\begin{align}
+%T_\text{MNIST}&: \mathbb{R}^{784} \to \mathbb{R}^{10}\nonumber\\
+%&: \mathbb{R}^{784} \ni x_i \to \sigma(wx+b) \in \mathbb{R}^{10}
+%\end{align}
+%The value of $784$ arises if one unrolls the image pixels onto a vector.
+%
+%One must be careful not to take the input image as two-dimensional, as it is presented on a screen. Rather, each pixel of the image is its own dimension in the data space. The matrix $w$ in this case corresponds to the importance of the pixel for its particular class. Each element $\mu_{a\alpha}$ of $w$ is multiplied with its corresponding pixel value $x_{(a)}$ and all values are summed together for the category $\alpha$.\footnote{This is simple matrix multiplication, i.e.
+%\begin{align*}
+%\begin{pmatrix} a & b & c\\ d & e & f\end{pmatrix} \begin{pmatrix} x \\ y \\ z\end{pmatrix} = \left( \begin{array}{c|c} ax + by + cz & \alpha\\ dx + ey + fz & \beta\end{array}\right)
+%\end{align*} where the first matrix represents $w$, the transfer matrix, the $(x, y, z)^T$ the input image that is then categorised along $\alpha$ and $\beta$. Note that each value $a, b, c, \ldots$ is associated with a particular combination of the input data and the category.} 
+%
+%%\section{Projective spaces}
+%%
+%%The sigmoid function presented above can be used to give individual probabilities for a class when used on the last layer.\footnote{Since the image of the sigmoid function is $[0,1]$, it nicely transfers to an interpretation of probability or likelihood.} Often though, the one expects and trains the network on the assumption that only one category at a time is valid. In this case, one needs a relative probability, in the form of the softmax function,
+%%\begin{align}
+%%\sigma_\text{softmax}(x_\alpha) = \frac{\exp(x^\alpha)}{\sum_i \exp(x^i)}
+%%\end{align}
+%%which provides an exponential norm and maps the points $x_i\in \mathbb{R}^l$ in the label space to a projective space\footnote{There is conceptual similarity to the Frobenius norm $x/||x||^2$, which maps
+%%\begin{align*}
+%%T_\text{Frobenius}: \mathbb{R}^n \to \mathbb{S}^{n-1}
+%%\end{align*}}
+%%\begin{align}
+%%T_\text{softmax}: \mathbb{R}^n \to \mathbb{P}^{n-1}_\text{softmax}
+%%\end{align}
+%%In terms of numerical values, the softmax function increases the largest values and subdues all other, while norming the sum to $1$.
+
+
+
+\end{document}
